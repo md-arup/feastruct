@@ -89,6 +89,7 @@ class Solver:
 
             # get element stiffness matrix
             k_el = el.get_stiffness_matrix()
+            # print(k_el)
 
             # get element degrees of freedom
             el_dofs = el.get_gdof_nums()
@@ -101,12 +102,11 @@ class Solver:
 
             # flatten element stiffness matrix
             k = k_el.flatten()
-
+            
             # add to global arrays
             row = np.hstack((row, r))
             col = np.hstack((col, c))
             data = np.hstack((data, k))
-
             # assemble geometric stiffness matrix
             if geometric:
                 k_el_g = el.get_geometric_stiff_matrix(analysis_case=analysis_case)
@@ -325,13 +325,37 @@ class Solver:
         shift = eigen_settings.shift
         maxiter = eigen_settings.maxiter
         tol = eigen_settings.tol
+        
+        np.set_printoptions(formatter={'float': '{: 0.0f}'.format})
 
+        # print list with comma delineators
+        # A_toprint = A_csc.todense()
+        # for row in A_toprint:
+        #     print(', '.join(str(x) for x in row.tolist()) + ',')
+        # print("-------------------")
+        # M_toprint = M_csc.todense()
+        # for row in M_toprint:
+        #     print(', '.join(str(x) for x in row.tolist()) + ',')
+        
         try:
-            (w, v) = linalg.eigs(A=A_csc, k=n, M=M_csc, sigma=shift, maxiter=maxiter, tol=tol)
-
+            regularisation = 1e-20
+            A_csc = A_csc + sp.diags(regularisation*np.ones(A_csc.shape[0]), format='csc')
+            M_csc = M_csc + sp.diags(regularisation*np.ones(A_csc.shape[0]), format='csc')
+            
+            (w, v) = linalg.eigs(A=A_csc, k=n, M=M_csc, sigma=shift, maxiter=maxiter, tol=tol, which = 'LM')
+            # (w, v) = linalg.eigs(A=A_csc, k=n, M=M_csc.setdiag(0), sigma=shift, maxiter=maxiter, tol=tol, which = 'LM')
+            # print("size of factorization", linalg.eig)
         except linalg.ArpackNoConvergence:
             raise Exception('Convergence not obtained for the eigenvalue solver')
-
+        
+        # except:
+        #     eigvals, eigvecs = linalg.eigsh(A_csc, k=n, which='SM')
+        #     X0 = eigvecs.reshape(-1,n)
+        #     if eigvals[0] == 0:
+        #         X0[:, 0] += 1e-6 * np.random.rand(X0.shape[0])
+        #     (w, v) = linalg.lobpcg(A=A_csc, X=X0, M=M_csc, maxiter=maxiter, tol=tol)
+        np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+        # print("The eigenvalues are ", np.real(w))
         return (np.real(w), np.real(v))
 
     def save_displacements(self, u, analysis_case):

@@ -71,3 +71,7 @@ class LinearBuckling(Solver):
                     A=K_mod, M=-K_mod_g, eigen_settings=self.solver_settings.linear_buckling)
 
             self.save_buckling_results(w=w, v=v, analysis_case=analysis_case)
+            
+            return w, v
+        
+        return None

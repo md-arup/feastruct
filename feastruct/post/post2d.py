@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import feastruct.fea.bcs as bcs
-
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 
 class PostProcessor2D:
     """Class for post processing methods for 2D analyses.
@@ -28,7 +29,7 @@ class PostProcessor2D:
         self.n_subdiv = n_subdiv
 
     def plot_geom(self, analysis_case, ax=None, supports=True, loads=True, undeformed=True,
-                  deformed=False, def_scale=1, dashed=False):
+                  deformed=False, def_scale=1, dashed=False, show=True):
         """Method used to plot the structural mesh in the undeformed and/or deformed state. If no
         axes object is provided, a new axes object is created. N.B. this method is adapted from the
         MATLAB code by F.P. van der Meer: plotGeom.m.
@@ -127,6 +128,12 @@ class PostProcessor2D:
         plt.axis('tight')
         ax.set_xlim(self.wide_lim(ax.get_xlim()))
         ax.set_ylim(self.wide_lim(ax.get_ylim()))
+        # Hide the horizontal axis
+        plt.xticks([])
+        plt.ylabel('Distance (m)')
+        
+        # Show the vertical axis grid and line
+        plt.grid(axis='y', linestyle='--', alpha=0.5)
 
         limratio = np.diff(ax.get_ylim())/np.diff(ax.get_xlim())
 
@@ -139,7 +146,10 @@ class PostProcessor2D:
 
         ax.set_aspect(1)
         plt.box(on=None)
-        plt.show()
+        if show == True:
+            plt.show()
+        if type(show) == str:
+            plt.savefig(show)
 
     def plot_reactions(self, analysis_case):
         """Method used to generate a plot of the reaction forces.
@@ -225,7 +235,22 @@ class PostProcessor2D:
         # plot the undeformed structure
         self.plot_geom(analysis_case=analysis_case, ax=ax)
 
-    def plot_buckling_results(self, analysis_case, buckling_mode=0):
+    def generate_distinct_colors(self, num_colors):
+        cmap = plt.get_cmap('tab10')
+        colors = [cmap(i) for i in range(num_colors)]
+        distinct_colors = []
+
+        for i in range(num_colors):
+            curr_color = colors[i]
+            prev_color = colors[i-1] if i > 0 else colors[num_colors-1]
+            if mcolors.to_rgb(curr_color) == mcolors.to_rgb(prev_color):
+                distinct_colors.append(cmap((i + 1) % num_colors))
+            else:
+                distinct_colors.append(curr_color)
+
+        return distinct_colors
+
+    def plot_buckling_results(self, analysis_case, buckling_mode=0, ke_convert = None, save_path = None):
         """Method used to plot a buckling eigenvector. The undeformed structure is plotted with a
         dashed line.
 
@@ -234,7 +259,7 @@ class PostProcessor2D:
         :param int buckling_mode: Buckling mode to plot
         """
 
-        (fig, ax) = plt.subplots()
+        (fig, ax) = plt.subplots(figsize= (5,5))
 
         # set initial plot limits
         (xmin, xmax, ymin, ymax, _, _) = self.analysis.get_node_lims()
@@ -243,6 +268,32 @@ class PostProcessor2D:
         max_v = 0
 
         # loop through all the elements
+        thickness = []
+        EAI = []
+        FLOAT_PRODUCT_PRECISION = 10
+        for el in self.analysis.elements:
+            E = el.material.elastic_modulus
+            A = el.section.area
+            I = el.section.ixx
+            multiple = round(E * A * I, FLOAT_PRODUCT_PRECISION)
+            thickness.append(multiple)
+            EAI.append([E, A, I])
+            
+        colors = self.generate_distinct_colors(len(set(thickness)))
+        
+        max_value = np.max(thickness)
+        MAX_VALUE = 5
+        OFFSET = 10
+        scaled_thickness = []
+        properties = {}
+        thickness_color_dict = {}
+        for eai in EAI:
+            scaledm = round(np.log(np.product(eai)) / np.log(max_value) * MAX_VALUE + OFFSET, FLOAT_PRODUCT_PRECISION)
+            if scaledm not in scaled_thickness:
+                properties[scaledm] = f'E = {eai[0]:.0f} MPa\nA = {eai[1]*1e6:.0f} mm2\nI = {eai[2]*1e6:.0f}x10^6 mm4'
+                thickness_color_dict[scaledm] = colors.pop()
+            scaled_thickness.append(scaledm)            
+        
         for el in self.analysis.elements:
             (w, v_el) = el.get_buckling_results(
                 analysis_case=analysis_case, buckling_mode=buckling_mode)
@@ -253,18 +304,25 @@ class PostProcessor2D:
         scale = 0.1 * max(xmax - xmin, ymax - ymin) / max_v
 
         # plot eigenvectors
-        for el in self.analysis.elements:
+        for i_el, el in enumerate(self.analysis.elements):
             (_, v_el) = el.get_buckling_results(
                 analysis_case=analysis_case, buckling_mode=buckling_mode)
 
             el.plot_deformed_element(
-                ax=ax, analysis_case=analysis_case, n=self.n_subdiv, def_scale=scale, u_el=v_el)
+                ax=ax, analysis_case=analysis_case, n=self.n_subdiv, def_scale=scale, u_el=v_el, style=(scaled_thickness[i_el], thickness_color_dict[scaled_thickness[i_el]]))
+            
+        patches = [mpatches.Patch(color=v, label=properties[k]) for k, v in thickness_color_dict.items()]
 
+        # Add the custom legend
+        plt.legend(loc='right', fontsize = 'xx-small',handles=patches)
         # plot the load factor (eigenvalue)
-        ax.set_title("Load Factor for Mode {:d}: {:.4e}".format(buckling_mode, w), size=10)
+        wc = w*1000 * 0.7**2/ke_convert**2 if ke_convert else w*1000
+        ax.set_title("Load Factor for Mode {:d}{}: {:.0f} kN".format(buckling_mode, ' (Critical Mode) ' if buckling_mode == 0 else '', wc), size=10)
 
         # plot the undeformed structure
-        self.plot_geom(analysis_case=analysis_case, ax=ax, dashed=True)
+        self.plot_geom(analysis_case=analysis_case, ax=ax, dashed=True, show=save_path)
+    
+        
 
     def plot_frequency_results(self, analysis_case, frequency_mode=0):
         """Method used to plot a frequency eigenvector. The undeformed structure is plotted with a

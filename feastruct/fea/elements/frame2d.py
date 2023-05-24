@@ -38,7 +38,7 @@ class FrameElement2D(FrameElement):
         # initialise parent FrameElement class
         super().__init__(nodes=nodes, material=material, efs=efs, section=section)
 
-    def plot_element(self, ax, linestyle='-', linewidth=2, marker='.'):
+    def plot_element(self, ax, linestyle='-', linewidth=2, marker='k.'):
         """Plots the undeformed frame element on the axis defined by ax.
 
         :param ax: Axis object on which to draw the element
@@ -50,10 +50,10 @@ class FrameElement2D(FrameElement):
 
         coords = self.get_node_coords()
 
-        ax.plot(coords[:, 0], coords[:, 1], 'k.', linestyle=linestyle,
+        ax.plot(coords[:, 0], coords[:, 1], linestyle=linestyle,
                 linewidth=linewidth, marker=marker, markersize=8)
 
-    def plot_deformed_element(self, ax, analysis_case, n, def_scale, u_el=None):
+    def plot_deformed_element(self, ax, analysis_case, n, def_scale, u_el=None, style = None):
         """Plots a 2D frame element in its deformed configuration for the displacement vector
         defined by the analysis_case. The deformation is based on the element shape functions. If a
         displacement vector, *u_el*, is supplied, uses this to plot the deformed element.
@@ -123,12 +123,20 @@ class FrameElement2D(FrameElement):
             y[i] = u_y[i] + y0[i]
 
         # plot frame elements
-        for i in range(n - 1):
-            ax.plot([x[i], x[i+1]], [y[i], y[i+1]], 'k-', linewidth=2)
+        if style == None:
+            for i in range(n - 1):
+                ax.plot([x[i], x[i+1]], [y[i], y[i+1]], '-', linewidth=2)
 
-        # plot end markers
-        ax.plot(x[0], y[0], 'k.', markersize=8)
-        ax.plot(x[-1], y[-1], 'k.', markersize=8)
+            # plot end markers
+            ax.plot(x[0], y[0], '.', markersize=8)
+            ax.plot(x[-1], y[-1], '.',markersize=8)
+        else:
+            for i in range(n - 1):
+                ax.plot([x[i], x[i+1]], [y[i], y[i+1]], '-',color=style[1], linewidth=style[0])
+
+            # plot end markers
+            # ax.plot(x[0], y[0], '.', color=style[1], markersize=8)
+            # ax.plot(x[-1], y[-1], '.',color=style[1],markersize=8)
 
     def plot_axial_force(self, ax, analysis_case, scalef, n):
         """Plots the axial force diagram from a static analysis defined by case_id. N.B. this
@@ -442,6 +450,7 @@ class Bar2D_2N(FrameElement2D):
             [1, -1],
             [-1, 1]
         ])
+        
 
         return np.matmul(np.matmul(np.transpose(T), k_g), T)
 
@@ -773,10 +782,13 @@ class EulerBernoulli2D_2N(FrameElement2D):
         cy = c[1]
 
         # get axial force
-        f_int = self.get_fint(analysis_case)
+        # TODO: changed from self.get_fint to get_internal_actions, could be wrong
+        f_int = self.get_internal_actions(analysis_case)
 
         # get axial force in element (take average of nodal values)
+        
         N = np.mean([-f_int[0], f_int[3]])
+        # print(f_int)
 
         # form geometric stiffness matrix
         k_el_g = np.array([
@@ -799,7 +811,11 @@ class EulerBernoulli2D_2N(FrameElement2D):
             [0, 0, 0, 0, 0, 1]
         ])
 
-        return np.matmul(np.matmul(np.transpose(T), k_el_g), T)
+        outputmatrix = np.matmul(np.matmul(np.transpose(T), k_el_g), T)
+        # print("PRINTING from get_geometric_stiff_matrix() in Euler-Bernoulli", l0, N)
+        # print(T)
+        # print('----------------\n',k_el_g)
+        return outputmatrix
 
     def get_mass_matrix(self):
         """Gets the mass matrix for a for a two noded 2D Euler-Bernoulli frame element. The mass
@@ -1014,6 +1030,7 @@ class EulerBernoulli2D_2N(FrameElement2D):
         f = self.get_internal_actions(analysis_case=analysis_case)
         N1 = -f[0]
         N2 = f[3]
+        print("N1, N2:", f, N1, N2)
 
         # generate list of stations
         stations = self.get_sampling_points(n=n, analysis_case=analysis_case)
