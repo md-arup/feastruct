@@ -250,7 +250,7 @@ class PostProcessor2D:
 
         return distinct_colors
 
-    def plot_buckling_results(self, analysis_case, buckling_mode=0, ke_convert = None, save_path = None):
+    def plot_buckling_results(self, analysis_case, buckling_mode=0, ke_convert = None, save_path = None, maxval = 10.0, offset = 5.0):
         """Method used to plot a buckling eigenvector. The undeformed structure is plotted with a
         dashed line.
 
@@ -282,8 +282,8 @@ class PostProcessor2D:
         colors = self.generate_distinct_colors(len(set(thickness)))
         
         max_value = np.max(thickness)
-        MAX_VALUE = 5
-        OFFSET = 10
+        MAX_VALUE = maxval
+        OFFSET = offset
         scaled_thickness = []
         properties = {}
         thickness_color_dict = {}
