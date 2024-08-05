@@ -132,7 +132,7 @@ class FrameElement2D(FrameElement):
             ax.plot(x[-1], y[-1], '.',markersize=8)
         else:
             for i in range(n - 1):
-                ax.plot([x[i], x[i+1]], [y[i], y[i+1]], '-',color=style[1], linewidth=style[0])
+                ax.plot([x[i], x[i+1]], [y[i], y[i+1]], '-',color=style[1], linewidth=style[0],solid_capstyle="butt")
 
             # plot end markers
             # ax.plot(x[0], y[0], '.', color=style[1], markersize=8)
