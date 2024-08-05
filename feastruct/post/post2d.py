@@ -288,7 +288,7 @@ class PostProcessor2D:
         properties = {}
         thickness_color_dict = {}
         for eai in EAI:
-            scaledm = round(np.log(np.product(eai)) / np.log(max_value) * MAX_VALUE + OFFSET, FLOAT_PRODUCT_PRECISION)
+            scaledm = round(np.log(np.product(eai * 1e6)) / np.log(max_value) * MAX_VALUE + OFFSET, FLOAT_PRODUCT_PRECISION)
             if scaledm not in scaled_thickness:
                 properties[scaledm] = f'E = {eai[0]:.0f} MPa\nA = {eai[1]*1e6:.0f} mm2\nI = {eai[2]*1e6:.0f}x10^6 mm4'
                 thickness_color_dict[scaledm] = colors.pop()
